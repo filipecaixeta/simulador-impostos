@@ -2,6 +2,8 @@
 
 Este é um simulador de impostos desenvolvido especialmente para desenvolvedores que trabalham como PJ (Pessoa Jurídica) no Brasil, atendendo tanto profissionais que trabalham para empresas nacionais quanto para empresas no exterior.
 
+![Screenshot 2024-12-02 at 11 20 28 AM](https://github.com/user-attachments/assets/c15358a0-c781-47d7-a6d9-a1459157d272)
+
 ## 🎯 Funcionalidades
 
 - Simulação de impostos para três regimes tributários:
@@ -18,7 +20,7 @@ Este é um simulador de impostos desenvolvido especialmente para desenvolvedores
 
 ## 🚀 Como usar
 
-1. Acesse o simulador através do GitHub Pages: 
+1. Acesse o simulador através do GitHub Pages: https://filipecaixeta.github.io/simulador-impostos/
 2. Insira sua renda (mensal ou anual)
 3. Marque a opção "Exportação" se trabalhar para empresas no exterior
 4. Ajuste o valor do pró-labore conforme sua necessidade
