@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cálculo de Impostos</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        .input-section label {
+            margin-right: 10px;
+        }
+
+        #resultado {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            color: #333;
+        }
+
+        .input-section {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .input-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .input-section input[type="text"],
+        .input-section select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .input-section button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .input-section button:hover {
+            background-color: #45a049;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #ffffff;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        #resultado {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #grafico,
+        #graficoAliquotas {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+
+            .input-section,
+            table,
+            #resultado {
+                padding: 10px;
+            }
+
+            th,
+            td {
+                padding: 8px;
+            }
+        }
+    </style>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+    <h1>Comparativo de Impostos</h1>
+
+    <div id="graficoAliquotas"></div>
+
+    <div class="input-section">
+        <h2>Calcular Imposto</h2>
+        <label>
+            <input type="radio" name="tipoRenda" value="mensal" checked> Mensal
+        </label>
+        <label>
+            <input type="radio" name="tipoRenda" value="anual"> Anual
+        </label>
+        <br><br>
+        <label for="renda">Renda (R$): </label>
+        <input type="text" id="renda" inputmode="numeric" value="">
+        <br><br>
+        <label>
+            <input type="checkbox" id="exportacao" checked> Exportação
+        </label>
+        <br><br>
+        <label for="prolabore">Pró-Labore (R$): </label>
+        <input type="text" id="prolabore" inputmode="numeric" value="0">
+        <br><br>
+    </div>
+
+    <div id="resultado"></div>
+
+    <h2>Receita Bruta em 12 meses (R$)</h2>
+    <div id="tabelaReceita"></div>
+
+    <h2>Percentual de Repartição dos Tributos</h2>
+    <div id="tabelaReparticao"></div>
+
+    <script>
+        const dadosReceitaAnexo3 = [
+            { faixa: '1ª faixa', inicioFaixa: 0, fimFaixa: 180000.00, receita: 'até 180.000,00', aliquota: 6.00 },
+            { faixa: '2ª faixa', inicioFaixa: 180000.01, fimFaixa: 360000.00, receita: 'de 180.000,01 até 360.000,00', aliquota: 11.20 },
+            { faixa: '3ª faixa', inicioFaixa: 360000.01, fimFaixa: 720000.00, receita: 'de 360.000,01 até 720.000,00', aliquota: 13.50 },
+            { faixa: '4ª faixa', inicioFaixa: 720000.01, fimFaixa: 1800000.00, receita: 'de 720.000,01 até 1.800.000,00', aliquota: 16.00 },
+            { faixa: '5ª faixa', inicioFaixa: 1800000.01, fimFaixa: 3600000.00, receita: 'de 1.800.000,01 até 3.600.000,00', aliquota: 21.00 },
+            { faixa: '6ª faixa', inicioFaixa: 3600000.01, fimFaixa: 4800000.00, receita: 'de 3.600.000,01 até 4.800.000,00', aliquota: 33.00 }
+        ];
+
+        const dadosReparticaoAnexo3 = [
+            { faixa: '1ª Faixa', irpj: 4.00, csll: 3.50, cofins: 12.82, pis: 2.78, cpp: 43.40, iss: 33.50 },
+            { faixa: '2ª Faixa', irpj: 4.00, csll: 3.50, cofins: 14.05, pis: 3.05, cpp: 43.40, iss: 32.00 },
+            { faixa: '3ª Faixa', irpj: 4.00, csll: 3.50, cofins: 13.64, pis: 2.96, cpp: 43.40, iss: 32.50 },
+            { faixa: '4ª Faixa', irpj: 4.00, csll: 3.50, cofins: 13.64, pis: 2.96, cpp: 43.40, iss: 32.50 },
+            { faixa: '5ª Faixa', irpj: 4.00, csll: 3.50, cofins: 12.82, pis: 2.78, cpp: 43.40, iss: 33.50 },
+            { faixa: '6ª Faixa', irpj: 35.00, csll: 15.00, cofins: 16.03, pis: 3.47, cpp: 30.50, iss: 0 }
+        ];
+
+        const dadosReceitaAnexo5 = [
+            { faixa: '1ª faixa', inicioFaixa: 0, fimFaixa: 180000.00, receita: 'até 180.000,00', aliquota: 15.50 },
+            { faixa: '2ª faixa', inicioFaixa: 180000.01, fimFaixa: 360000.00, receita: 'de 180.000,01 até 360.000,00', aliquota: 18.00 },
+            { faixa: '3ª faixa', inicioFaixa: 360000.01, fimFaixa: 720000.00, receita: 'de 360.000,01 até 720.000,00', aliquota: 19.50 },
+            { faixa: '4ª faixa', inicioFaixa: 720000.01, fimFaixa: 1800000.00, receita: 'de 720.000,01 até 1.800.000,00', aliquota: 20.50 },
+            { faixa: '5ª faixa', inicioFaixa: 1800000.01, fimFaixa: 3600000.00, receita: 'de 1.800.000,01 até 3.600.000,00', aliquota: 23.00 },
+            { faixa: '6ª faixa', inicioFaixa: 3600000.01, fimFaixa: 4800000.00, receita: 'de 3.600.000,01 até 4.800.000,00', aliquota: 30.50 }
+        ];
+
+        const dadosReparticaoAnexo5 = [
+            { faixa: '1ª Faixa', irpj: 25.00, csll: 15.00, cofins: 14.10, pis: 3.05, cpp: 28.85, iss: 14.00 },
+            { faixa: '2ª Faixa', irpj: 23.00, csll: 15.00, cofins: 14.10, pis: 3.05, cpp: 27.85, iss: 17.00 },
+            { faixa: '3ª Faixa', irpj: 24.00, csll: 15.00, cofins: 14.92, pis: 3.23, cpp: 23.85, iss: 19.00 },
+            { faixa: '4ª Faixa', irpj: 21.00, csll: 15.00, cofins: 15.74, pis: 3.41, cpp: 23.85, iss: 21.00 },
+            { faixa: '5ª Faixa', irpj: 23.00, csll: 12.50, cofins: 14.10, pis: 3.05, cpp: 23.85, iss: 23.50 },
+            { faixa: '6ª Faixa', irpj: 35.00, csll: 15.50, cofins: 16.44, pis: 3.56, cpp: 29.50, iss: 0 }
+        ];
+
+        const dadosReparticaoLucroPresumido = {
+            irpj: 0.32 * 15,
+            csll: 0.32 * 9,
+            cofins: 3.00,
+            pis: 0.65,
+            cpp: 0.00,
+            iss: 4.00
+        };
+
+        // https://www.gov.br/receitafederal/pt-br/assuntos/meu-imposto-de-renda/tabelas/2024
+        // A partir de fevereiro de 2024.
+        const dadosIRRF = [
+            { faixa: '1ª faixa', inicio: 0, fim: 2259.20, aliquota: 0, deducao: 0 },
+            { faixa: '2ª faixa', inicio: 2259.21, fim: 2826.65, aliquota: 7.5, deducao: 169.44 },
+            { faixa: '3ª faixa', inicio: 2826.66, fim: 3751.05, aliquota: 15.0, deducao: 381.44 },
+            { faixa: '4ª faixa', inicio: 3751.06, fim: 4664.68, aliquota: 22.5, deducao: 662.77 },
+            { faixa: '5ª faixa', inicio: 4664.69, fim: Infinity, aliquota: 27.5, deducao: 896.00 }
+        ];
+
+        // https://www.gov.br/inss/pt-br/direitos-e-deveres/inscricao-e-contribuicao/tabela-de-contribuicao-mensal
+        // INSS a partir de janeiro de 2024.
+        const faixasINSS = [
+            { inicio: 0, fim: 1412.00, aliquota: 0.075 },
+            { inicio: 1412.01, fim: 2666.68, aliquota: 0.09 },
+            { inicio: 2666.69, fim: 4000.03, aliquota: 0.12 },
+            { inicio: 4000.04, fim: 7786.02, aliquota: 0.14 }
+        ];
+
+        const salarioMinimo = 1412;
+
+        function formatarMoeda(valor) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(valor);
+        }
+
+        function formatarInputMoeda(input) {
+            let valor = input.value.replace(/\D/g, '');
+            valor = (valor / 100).toFixed(2);
+            if (valor === 'NaN') {
+                input.value = '';
+                return;
+            }
+            input.value = formatarMoeda(valor);
+            return valor;
+        }
+
+        document.getElementById('prolabore').value = formatarMoeda(salarioMinimo);
+        document.getElementById('renda').value = formatarMoeda(50000);
+
+        document.getElementById('renda').addEventListener('input', function (e) {
+            formatarInputMoeda(this);
+        });
+
+        document.getElementById('prolabore').addEventListener('input', function (e) {
+            formatarInputMoeda(this);
+        });
+
+        function calcularAliquotaExportacao(faixa, anexo) {
+            const dadosReparticao = anexo === 'Anexo 3' ? dadosReparticaoAnexo3 : dadosReparticaoAnexo5;
+            const dadosReceita = anexo === 'Anexo 3' ? dadosReceitaAnexo3 : dadosReceitaAnexo5;
+            const reparticao = dadosReparticao.find(r => r.faixa === faixa.replace('faixa', 'Faixa'));
+            const aliExport = reparticao.irpj + reparticao.csll + reparticao.cpp;
+            const aliTotal = reparticao.irpj + reparticao.csll + reparticao.cpp + reparticao.pis + reparticao.cofins + (typeof reparticao.iss === 'number' ? reparticao.iss : 0);
+            return (aliExport / aliTotal) * (dadosReceita.find(r => r.faixa === faixa).aliquota);
+        }
+
+
+        const dadosReceitaLucroPresumido = [
+            {
+                faixa: 'Faixa única',
+                inicioFaixa: 0,
+                fimFaixa: 78000000.00,
+                receita: 'até 78.000.000,00',
+                aliquota: dadosReparticaoLucroPresumido.irpj +
+                    dadosReparticaoLucroPresumido.csll +
+                    dadosReparticaoLucroPresumido.cofins +
+                    dadosReparticaoLucroPresumido.pis +
+                    dadosReparticaoLucroPresumido.iss,
+                aliquotaExportacao: dadosReparticaoLucroPresumido.irpj +
+                    dadosReparticaoLucroPresumido.csll
+            }
+        ];
+
+        function criarTabelaReceita() {
+            const anexos = ['Anexo 3', 'Anexo 5', 'Lucro Presumido'];
+            const dadosReceitas = [dadosReceitaAnexo3, dadosReceitaAnexo5, dadosReceitaLucroPresumido];
+
+            dadosReceitas.forEach((dadosReceita, index) => {
+                const anexo = anexos[index];
+                const section = document.createElement('div');
+                section.innerHTML = `<h3>${anexo}</h3>`;
+                const table = document.createElement('table');
+                table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Faixa</th>
+                    <th>Receita Bruta</th>
+                    <th>Alíquota</th>
+                    ${anexo !== 'Lucro Presumido' ?
+                        '<th>Alíquota Exportação</th>' :
+                        '<th>Alíquota Exportação</th>'}
+                </tr>
+            </thead>
+            <tbody>
+                ${dadosReceita.map(item => `
+                    <tr>
+                        <td>${item.faixa}</td>
+                        <td>${item.receita}</td>
+                        <td>${item.aliquota.toFixed(2)}%</td>
+                        ${anexo !== 'Lucro Presumido' ?
+                                `<td>${calcularAliquotaExportacao(item.faixa, anexo).toFixed(2)}%</td>` :
+                                `<td>${item.aliquotaExportacao.toFixed(2)}%</td>`}
+                    </tr>
+                `).join('')}
+            </tbody>
+        `;
+                section.appendChild(table);
+                document.getElementById('tabelaReceita').appendChild(section);
+            });
+        }
+
+        function criarTabelaReparticao() {
+            const anexos = ['Anexo 3', 'Anexo 5', 'Lucro Presumido'];
+            const dadosReparticoes = [
+                dadosReparticaoAnexo3,
+                dadosReparticaoAnexo5,
+                [dadosReparticaoLucroPresumido]
+            ];
+
+            dadosReparticoes.forEach((dadosReparticao, index) => {
+                const anexo = anexos[index];
+                const section = document.createElement('div');
+                section.innerHTML = `<h3>${anexo}</h3>`;
+                const table = document.createElement('table');
+
+                if (anexo === 'Lucro Presumido') {
+                    table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Modo</th>
+                        <th>IRPJ</th>
+                        <th>CSLL</th>
+                        <th>Cofins</th>
+                        <th>Pis</th>
+                        <th>ISS</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Normal</td>
+                        <td>${dadosReparticao[0].irpj.toFixed(2)}%</td>
+                        <td>${dadosReparticao[0].csll.toFixed(2)}%</td>
+                        <td>${dadosReparticao[0].cofins.toFixed(2)}%</td>
+                        <td>${dadosReparticao[0].pis.toFixed(2)}%</td>
+                        <td>${dadosReparticao[0].iss.toFixed(2)}%</td>
+                        <td>${(dadosReparticao[0].irpj +
+                            dadosReparticao[0].csll +
+                            dadosReparticao[0].cofins +
+                            dadosReparticao[0].pis +
+                            dadosReparticao[0].iss).toFixed(2)}%</td>
+                    </tr>
+                    <tr>
+                        <td>Exportação</td>
+                        <td>${dadosReparticao[0].irpj.toFixed(2)}%</td>
+                        <td>${dadosReparticao[0].csll.toFixed(2)}%</td>
+                        <td>0.00%</td>
+                        <td>0.00%</td>
+                        <td>0.00%</td>
+                        <td>${(dadosReparticao[0].irpj +
+                            dadosReparticao[0].csll).toFixed(2)}%</td>
+                    </tr>
+                </tbody>
+            `;
+                } else {
+                    table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Faixa</th>
+                        <th>IRPJ</th>
+                        <th>CSLL</th>
+                        <th>Cofins</th>
+                        <th>Pis</th>
+                        <th>CPP</th>
+                        <th>ISS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${dadosReparticao.map(item => `
+                        <tr>
+                            <td>${item.faixa}</td>
+                            <td>${item.irpj.toFixed(2)}%</td>
+                            <td>${item.csll.toFixed(2)}%</td>
+                            <td>${item.cofins.toFixed(2)}%</td>
+                            <td>${item.pis.toFixed(2)}%</td>
+                            <td>${item.cpp.toFixed(2)}%</td>
+                            <td>${typeof item.iss === 'number' ? item.iss.toFixed(2) + '%' : item.iss}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+                }
+                section.appendChild(table);
+                document.getElementById('tabelaReparticao').appendChild(section);
+            });
+        }
+
+        function calcularINSS(salario) {
+            // Cálculo do INSS:
+            // Alíquota fixa de 11% limitada ao teto de 7786.02
+            const tetoINSS = 7786.02;
+            const aliquota = 0.11;
+            return Math.min(salario, tetoINSS) * aliquota;
+        }
+
+        function calcularIRRF(salario) {
+            // Cálculo do IRRF (Imposto de Renda Retido na Fonte):
+            // 1. Calcula o INSS e subtrai do salário bruto para obter a base de cálculo
+            // 2. Identifica a faixa de IRRF aplicável baseado na base de cálculo
+            // 3. Calcula o IRRF usando a fórmula: (base * alíquota) - dedução da faixa
+            // 4. Garante que o IRRF não seja negativo (mínimo zero)
+            // 5. Calcula impostos totais (INSS + IRRF)
+            // 6. Obtém salário líquido subtraindo impostos totais do salário bruto
+            // 7. Calcula alíquota efetiva (percentual total de impostos sobre o salário)
+
+            const inss = calcularINSS(salario);
+            const baseCalculo = salario - inss;
+            let faixa = dadosIRRF.find(f => baseCalculo >= f.inicio && baseCalculo <= f.fim) || dadosIRRF[dadosIRRF.length - 1];
+            const irpfCalculado = (baseCalculo * (faixa.aliquota / 100)) - faixa.deducao;
+            const irpfLiquido = Math.max(0, irpfCalculado);
+            const totalImpostos = inss + irpfLiquido;
+            const salarioLiquido = salario - totalImpostos;
+            const aliquotaEfetiva = (totalImpostos / salario) * 100;
+
+            return {
+                proLabore: salario.toFixed(2),
+                inss: inss.toFixed(2),
+                irpfLiquido: irpfLiquido.toFixed(2),
+                totalImpostos: totalImpostos.toFixed(2),
+                salarioLiquido: salarioLiquido.toFixed(2),
+                aliquotaEfetiva: aliquotaEfetiva.toFixed(2),
+                faixaUtilizada: faixa
+            };
+        }
+
+        function calcularImposto(renda, tipo, exportacao, proLaboreInput) {
+            const anexos = ['Anexo 3', 'Anexo 5', 'Lucro Presumido'];
+            const resultados = [];
+
+            anexos.forEach(anexo => {
+                const rendaMensal = tipo === 'mensal' ? renda : renda / 12;
+                const rendaAnual = tipo === 'mensal' ? renda * 12 : renda;
+
+                let impostoPJ = 0;
+                let impostoPF = 0;
+                let proLabore = 0;
+                let calcIRPF = null;
+                let aliquotaPF = 0;
+
+                if (anexo === 'Anexo 3') {
+                    proLabore = Math.max(Math.max(rendaMensal * 0.28, salarioMinimo), proLaboreInput);
+                } else {
+                    proLabore = proLaboreInput
+                }
+
+                calcIRPF = calcularIRRF(proLabore);
+                impostoPF = parseFloat(calcIRPF.totalImpostos) * 12;
+                aliquotaPF = (parseFloat(calcIRPF.totalImpostos) / rendaMensal) * 100;
+
+                if (anexo === 'Lucro Presumido') {
+                    let aliquotaTotal = dadosReparticaoLucroPresumido.irpj +
+                        dadosReparticaoLucroPresumido.csll
+                    if (!exportacao) {
+                        aliquotaTotal += dadosReparticaoLucroPresumido.cofins +
+                            dadosReparticaoLucroPresumido.pis +
+                            dadosReparticaoLucroPresumido.iss;
+                    }
+
+                    impostoPJ = (aliquotaTotal / 100) * rendaAnual;
+                } else {
+                    const dadosReceita = anexo === 'Anexo 3' ? dadosReceitaAnexo3 : dadosReceitaAnexo5;
+                    dadosReceita.forEach(faixa => {
+                        if (rendaAnual > faixa.inicioFaixa) {
+                            const receitaAplicada = Math.min(rendaAnual, faixa.fimFaixa) - faixa.inicioFaixa;
+                            let aliquotaAplicada = exportacao ? calcularAliquotaExportacao(faixa.faixa, anexo) : faixa.aliquota;
+
+                            const imposto = (aliquotaAplicada / 100) * receitaAplicada;
+                            impostoPJ += imposto;
+                        }
+                    });
+                }
+
+                const impostoTotal = impostoPJ + impostoPF;
+                const aliquotaPJ = (impostoPJ / rendaAnual) * 100;
+                const aliquotaFinal = ((impostoTotal) / rendaAnual) * 100;
+                const liquidoAnual = rendaAnual - impostoTotal;
+                const liquidoMensal = liquidoAnual / 12;
+
+                resultados.push({
+                    anexo,
+                    rendaMensal: rendaMensal.toFixed(2),
+                    rendaAnual: rendaAnual.toFixed(2),
+                    impostoPJ: impostoPJ.toFixed(2),
+                    impostoPF: impostoPF.toFixed(2),
+                    aliquotaPJ: aliquotaPJ.toFixed(2),
+                    aliquotaPF: aliquotaPF.toFixed(2),
+                    aliquotaFinal: aliquotaFinal.toFixed(2),
+                    impostoTotal: impostoTotal.toFixed(2),
+                    liquidoMensal: liquidoMensal.toFixed(2),
+                    liquidoAnual: liquidoAnual.toFixed(2),
+                    proLabore: proLabore.toFixed(2),
+                    irpf: calcIRPF,
+                });
+            });
+
+            return resultados;
+        }
+
+        function exibirResultado(resultados) {
+            const resultadoDiv = document.getElementById('resultado');
+            resultadoDiv.innerHTML = '';
+
+            resultados.forEach(dados => {
+                const section = document.createElement('div');
+                section.innerHTML = `
+                    <h3>Resultado - ${dados.anexo}</h3>
+
+                    <h4>Impostos Pessoa Jurídica (PJ)</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Mensal</th>
+                                <th>Anual</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Imposto PJ</td>
+                                <td>${formatarMoeda(dados.impostoPJ / 12)}</td>
+                                <td>${formatarMoeda(dados.impostoPJ)}</td>
+                            </tr>
+                            <tr>
+                                <td>Alíquota PJ</td>
+                                <td colspan="2">${dados.aliquotaPJ}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4>Impostos Pessoa Física (PF)${dados.anexo === 'Anexo 3' ? ' - Pró-Labore 28%' : ''}</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Mensal</th>
+                                <th>Anual</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Pró-Labore</td>
+                                <td>${formatarMoeda(dados.proLabore)}</td>
+                                <td>${formatarMoeda(dados.proLabore * 12)}</td>
+                            </tr>
+                            <tr>
+                                <td>INSS</td>
+                                <td>${formatarMoeda(dados.irpf.inss)}</td>
+                                <td>${formatarMoeda(dados.irpf.inss * 12)}</td>
+                            </tr>
+                            <tr>
+                                <td>IRRF</td>
+                                <td>${formatarMoeda(dados.irpf.irpfLiquido)}</td>
+                                <td>${formatarMoeda(dados.irpf.irpfLiquido * 12)}</td>
+                            </tr>
+                            <tr>
+                                <td>Total Impostos PF</td>
+                                <td>${formatarMoeda(dados.impostoPF / 12)}</td>
+                                <td>${formatarMoeda(dados.impostoPF)}</td>
+                            </tr>
+                            <tr>
+                                <td>Alíquota PF</td>
+                                <td colspan="2">${dados.aliquotaPF}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4>Consolidado</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Mensal</th>
+                                <th>Anual</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Receita Bruta</td>
+                                <td>${formatarMoeda(dados.rendaMensal)}</td>
+                                <td>${formatarMoeda(dados.rendaAnual)}</td>
+                            </tr>
+                            <tr>
+                                <td>Valor Líquido</td>
+                                <td>${formatarMoeda(dados.liquidoMensal)}</td>
+                                <td>${formatarMoeda(dados.liquidoAnual)}</td>
+                            </tr>
+                            <tr>
+                                <td>Total Impostos</td>
+                                <td>${formatarMoeda(dados.impostoTotal / 12)}</td>
+                                <td>${formatarMoeda(dados.impostoTotal)}</td>
+                            </tr>
+                            <tr>
+                                <td>Alíquota Efetiva</td>
+                                <td colspan="2">${dados.aliquotaFinal}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                resultadoDiv.appendChild(section);
+            });
+        }
+
+        const camposFormulario = document.querySelectorAll('.input-section input, .input-section select');
+
+        camposFormulario.forEach(campo => {
+            campo.addEventListener('input', () => {
+                const inputValue = document.getElementById('renda').value;
+                const valor = parseFloat(inputValue.replace(/\D/g, '')) / 100;
+
+                if (isNaN(valor) || valor <= 0) {
+                    document.getElementById('resultado').innerHTML = '';
+                    return;
+                }
+
+                const tipo = document.querySelector('input[name="tipoRenda"]:checked').value;
+                const exportacao = document.getElementById('exportacao').checked;
+                const proLaboreInputValue = document.getElementById('prolabore').value;
+                const proLaboreValue = parseFloat(proLaboreInputValue.replace(/\D/g, '')) / 100 || 0;
+
+                const resultados = calcularImposto(valor, tipo, exportacao, proLaboreValue);
+                exibirResultado(resultados);
+            });
+        });
+
+        window.onload = function () {
+            document.getElementById('tabelaReceita').innerHTML = '';
+            document.getElementById('tabelaReparticao').innerHTML = '';
+            criarTabelaReceita();
+            criarTabelaReparticao();
+            const exportacao = document.getElementById('exportacao').checked;
+            gerarGraficoAliquotas(exportacao);
+
+            camposFormulario.forEach(campo => {
+                const event = new Event('input');
+                campo.dispatchEvent(event);
+            });
+        };
+
+        function gerarGraficoAliquotas(exportacao = false) {
+            const dadosAliquota = {
+                anexo3: [],
+                anexo5: [],
+                lucroPresumido: []
+            };
+
+            d3.select("#graficoAliquotas").html("");
+
+            const proLaboreInputValue = document.getElementById('prolabore').value;
+            const proLaboreValue = parseFloat(proLaboreInputValue.replace(/\D/g, '')) / 100 || 0;
+
+            for (let renda = 10000; renda <= 100000; renda += 1000) {
+                const resultados = calcularImposto(renda, 'mensal', exportacao, proLaboreValue);
+                const aliquotaAnexo3 = parseFloat(resultados.find(d => d.anexo === 'Anexo 3').aliquotaFinal) || 0;
+                const aliquotaAnexo5 = parseFloat(resultados.find(d => d.anexo === 'Anexo 5').aliquotaFinal) || 0;
+                const aliquotaLucroPresumido = parseFloat(resultados.find(d => d.anexo === 'Lucro Presumido').aliquotaFinal) || 0;
+
+                // Only add valid data points
+                if (!isNaN(aliquotaAnexo3) && !isNaN(aliquotaAnexo5)) {
+                    dadosAliquota.anexo3.push({ renda, aliquota: aliquotaAnexo3 });
+                    dadosAliquota.anexo5.push({ renda, aliquota: aliquotaAnexo5 });
+                    dadosAliquota.lucroPresumido.push({ renda, aliquota: aliquotaLucroPresumido });
+                }
+            }
+
+            const containerWidth = document.getElementById('graficoAliquotas').clientWidth;
+            const margin = { top: 20, right: 100, bottom: 40, left: 60 },
+                width = containerWidth - margin.left - margin.right,
+                height = 400 - margin.top - margin.bottom;
+
+            const svg = d3.select("#graficoAliquotas")
+                .append("svg")
+                .attr("viewBox", `0 0 ${containerWidth} 400`)
+                .attr("preserveAspectRatio", "xMidYMid meet")
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            // Set up scales
+            const x = d3.scaleLinear()
+                .domain([10000, 100000])
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, Math.max(
+                    d3.max(dadosAliquota.anexo3, d => d.aliquota),
+                    d3.max(dadosAliquota.anexo5, d => d.aliquota),
+                    d3.max(dadosAliquota.lucroPresumido, d => d.aliquota)
+                ) + 2])
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x)
+                    .ticks(10)
+                    .tickFormat(d => formatarMoeda(d)))
+                .call(g => g.select(".domain").remove());
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y)
+                    .ticks(Math.floor((y.domain()[1]) / 2)) // Every 2%
+                    .tickFormat(d => d.toFixed(1) + "%"))
+                .call(g => g.select(".domain").remove());
+
+            // Add gridlines
+            svg.append("g")
+                .attr("class", "grid")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x)
+                    .ticks(10)
+                    .tickSize(-height)
+                    .tickFormat(""))
+                .attr("stroke-opacity", 0.1);
+
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .ticks(Math.floor((y.domain()[1]) / 2))
+                    .tickSize(-width)
+                    .tickFormat(""))
+                .attr("stroke-opacity", 0.1);
+
+            // Create line generator
+            const line = d3.line()
+                .x(d => x(d.renda))
+                .y(d => y(d.aliquota))
+                .defined(d => !isNaN(d.aliquota)); // Skip invalid points
+
+            // Draw lines
+            svg.append("path")
+                .datum(dadosAliquota.anexo3)
+                .attr("fill", "none")
+                .attr("stroke", "green")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+            svg.append("path")
+                .datum(dadosAliquota.anexo5)
+                .attr("fill", "none")
+                .attr("stroke", "orange")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+            // Line for Lucro Presumido
+            svg.append("path")
+                .datum(dadosAliquota.lucroPresumido)
+                .attr("fill", "none")
+                .attr("stroke", "purple")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+            // Calculate intersection points
+            function findIntersections(data1, data2) {
+                const intersections = [];
+                for (let i = 0; i < data1.length - 1; i++) {
+                    const x1 = data1[i].renda;
+                    const y1 = data1[i].aliquota;
+                    const x2 = data1[i + 1].renda;
+                    const y2 = data1[i + 1].aliquota;
+
+                    const x3 = data2[i].renda;
+                    const y3 = data2[i].aliquota;
+                    const x4 = data2[i + 1].renda;
+                    const y4 = data2[i + 1].aliquota;
+
+                    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+                    if (denom === 0) continue; // Parallel lines
+
+                    const xi = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / denom;
+                    const yi = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / denom;
+
+                    if (xi >= Math.min(x1, x2) && xi <= Math.max(x1, x2) &&
+                        xi >= Math.min(x3, x4) && xi <= Math.max(x3, x4)) {
+                        intersections.push({ renda: xi, aliquota: yi });
+                    }
+                }
+                return intersections;
+            }
+
+            // Find intersections between all pairs of lines
+            const anexos = ['anexo3', 'anexo5', 'lucroPresumido'];
+            let intersections = [];
+
+            for (let i = 0; i < anexos.length; i++) {
+                for (let j = i + 1; j < anexos.length; j++) {
+                    intersections = intersections.concat(findIntersections(dadosAliquota[anexos[i]], dadosAliquota[anexos[j]]));
+                }
+            }
+
+            // Add vertical lines at intersection points
+            intersections.forEach(point => {
+                svg.append("line")
+                    .attr("x1", x(point.renda))
+                    .attr("y1", 0)
+                    .attr("x2", x(point.renda))
+                    .attr("y2", height)
+                    .attr("stroke", "red")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "4");
+            });
+
+            // Labels dos eixos
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .text("Renda Mensal");
+
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", -45)
+                .text("Alíquota (%)");
+
+            // Legenda
+            const legend = svg.append("g")
+                .attr("font-size", 10)
+                .attr("text-anchor", "start")
+                .selectAll("g")
+                .data([
+                    { name: "Anexo 3", color: "green" },
+                    { name: "Anexo 5", color: "orange" },
+                    { name: "Lucro Presumido", color: "purple" },
+                ])
+                .enter().append("g")
+                .attr("transform", (d, i) => `translate(${width + 10},${i * 20 + 10})`);
+
+            legend.append("rect")
+                .attr("width", 19)
+                .attr("height", 19)
+                .attr("fill", d => d.color);
+
+            legend.append("text")
+                .attr("x", 24)
+                .attr("y", 9.5)
+                .attr("dy", "0.32em")
+                .text(d => d.name);
+        }
+
+        document.getElementById('exportacao').addEventListener('change', function () {
+            const exportacao = this.checked;
+            gerarGraficoAliquotas(exportacao);
+        });
+
+        document.getElementById('prolabore').addEventListener('input', function (e) {
+            const exportacao = document.getElementById('exportacao').checked;
+            gerarGraficoAliquotas(exportacao);
+        });
+
+        window.onload = function () {
+            document.getElementById('tabelaReceita').innerHTML = '';
+            document.getElementById('tabelaReparticao').innerHTML = '';
+            criarTabelaReceita();
+            criarTabelaReparticao();
+            const exportacao = document.getElementById('exportacao').checked;
+            gerarGraficoAliquotas(exportacao);
+            camposFormulario.forEach(campo => {
+                const event = new Event('input');
+                campo.dispatchEvent(event);
+            });
+        };
+    </script>
+</body>
+
+</html>
