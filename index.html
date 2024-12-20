@@ -430,7 +430,7 @@
             return Math.min(salario, tetoINSS) * aliquota;
         }
 
-        function calcularIRRF(salario) {
+        function calcularIRRF(salario, calcInssPJ) {
             // Cálculo do IRRF (Imposto de Renda Retido na Fonte):
             // 1. Calcula o INSS e subtrai do salário bruto para obter a base de cálculo
             // 2. Identifica a faixa de IRRF aplicável baseado na base de cálculo
@@ -441,17 +441,19 @@
             // 7. Calcula alíquota efetiva (percentual total de impostos sobre o salário)
 
             const inss = calcularINSS(salario);
+            const inssPJ = calcInssPJ?salario * 0.2:0
             const baseCalculo = salario - inss;
             let faixa = dadosIRRF.find(f => baseCalculo >= f.inicio && baseCalculo <= f.fim) || dadosIRRF[dadosIRRF.length - 1];
             const irpfCalculado = (baseCalculo * (faixa.aliquota / 100)) - faixa.deducao;
             const irpfLiquido = Math.max(0, irpfCalculado);
-            const totalImpostos = inss + irpfLiquido;
+            const totalImpostos = inss + inssPJ + irpfLiquido;
             const salarioLiquido = salario - totalImpostos;
             const aliquotaEfetiva = (totalImpostos / salario) * 100;
 
             return {
                 proLabore: salario.toFixed(2),
                 inss: inss.toFixed(2),
+                inssPJ: inssPJ.toFixed(2),
                 irpfLiquido: irpfLiquido.toFixed(2),
                 totalImpostos: totalImpostos.toFixed(2),
                 salarioLiquido: salarioLiquido.toFixed(2),
@@ -480,7 +482,7 @@
                     proLabore = proLaboreInput
                 }
 
-                calcIRPF = calcularIRRF(proLabore);
+                calcIRPF = calcularIRRF(proLabore, anexo === 'Lucro Presumido');
                 impostoPF = parseFloat(calcIRPF.totalImpostos) * 12;
                 aliquotaPF = (parseFloat(calcIRPF.totalImpostos) / rendaMensal) * 100;
 
@@ -580,10 +582,17 @@
                                 <td>${formatarMoeda(dados.proLabore * 12)}</td>
                             </tr>
                             <tr>
-                                <td>INSS</td>
+                                <td>INSS - 11%</td>
                                 <td>${formatarMoeda(dados.irpf.inss)}</td>
                                 <td>${formatarMoeda(dados.irpf.inss * 12)}</td>
                             </tr>
+                            ${parseFloat(dados.irpf.inssPJ) > 0 ? `
+                            <tr>
+                                <td>INSS PJ - 20%</td>
+                                <td>${formatarMoeda(dados.irpf.inssPJ)}</td>
+                                <td>${formatarMoeda(dados.irpf.inssPJ * 12)}</td>
+                            </tr>
+                            ` : ''}
                             <tr>
                                 <td>IRRF</td>
                                 <td>${formatarMoeda(dados.irpf.irpfLiquido)}</td>
